@@ -6,10 +6,10 @@ import os
 
 from dataset import ImageDataset
 from models.evaluator import Evaluator
+from models.img_generator import ImageGenerator
 
-def load_datasets(directory_path: str, image_size: tuple[int, int] = (160, 160)) -> tuple[ImageDataset, ImageDataset]:
-    TRAIN_RATIO = (2, 1)
-    
+
+def load_dataset(directory_path: str, image_size: tuple[int, int]) -> ImageDataset:
     paths = [os.path.join(directory_path, img) for img in os.listdir(directory_path) if img.endswith(("png", "jpg", "jpeg"))]
 
     transform = transforms.Compose([
@@ -19,34 +19,62 @@ def load_datasets(directory_path: str, image_size: tuple[int, int] = (160, 160))
         # Normalization
         transforms.Normalize(mean=[0.5], std=[0.5])
     ])
-    # Split paths to train and test
-    part = len(paths) // sum(TRAIN_RATIO)
-    train_paths = paths[:part * TRAIN_RATIO[0]]
-    test_paths = paths[part * TRAIN_RATIO[0]:]
 
-    # TRAIN
-    train_dataset = ImageDataset(train_paths, transform=transform, rgb=False)
-    # TEST
-    test_dataset = ImageDataset(test_paths, transform=transform, rgb=False)
+    return ImageDataset(paths, transform, rgb=False)
 
-    return train_dataset, test_dataset
 
+def create_evaluator(directory_path: str,
+                     image_size: tuple[int, int],
+                     name: str ="evaluator",
+                     img_channels: int =1,
+                     learning_rate: float =0.001,
+                     end_loss: float =0.1,
+                     device: torch.device =torch.device("cpu")):
+    
+    BATCH_SIZE = 256
+    dataset = load_dataset(directory_path, image_size)
+
+    loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+
+    evaluator = Evaluator(image_size, img_channels, device)
+    evaluator.train_model(loader, learning_rate, end_loss, 250)
+    evaluator.save_model(name)
 
 def main():
-    batch_size = 64
-    directory = "dataset/profiles_short"
-    image_size = (160, 160)
-
-    train_set,  test_set = load_datasets(directory)
-
-    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=True)
+    directory = "dataset/numbers/0"
+    image_size = (80, 80)
+    img_channels = 1
+    learning_rate = 0.01
+    end_loss = 0.005
+    evaluator_name = "evaluator"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    evaluator = Evaluator(image_size=image_size, input_channels=1, device=device)
-    evaluator.train_model(train_loader, epochs=10)
-    evaluator.test_model(test_loader)
+    # Not existing evaluator model
+    if not os.path.isfile(f"models/saves/{evaluator_name}.pth"):
+        print("Evaluator model was not found. Creating new evaluator model.")
+        create_evaluator(directory, image_size, evaluator_name, img_channels, learning_rate, end_loss, device)
+
+
+    generator = ImageGenerator(image_size, evaluator_name, img_channels, device)
+    generator.train(epochs=100, learning_rate=0.001)
+    image = generator()
+
+    plt.imshow(image[0][0].cpu().detach().numpy(), cmap="gray")
+    plt.show()
+
+    # epochs = [1, 10, 20, 50, 100, 200, 250, 500]
+    # images = []
+    # for epoch in epochs:
+    #     generator = ImageGenerator(image_size, evaluator_name, img_channels, device)
+    #     generator.train(epochs=epoch, learning_rate=0.001)
+    #     image = generator()
+    #     images.append(image)
+
+    # for i in range(len(images)):
+    #     plt.imshow(images[i][0][0].cpu().detach().numpy(), cmap="gray")
+    #     plt.title(f"Epoch: {epochs[i]}")
+    #     plt.show()
 
 
 

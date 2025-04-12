@@ -3,7 +3,12 @@ from torch.utils.data import Dataset
 import torch, torchvision
 
 class ImageDataset(Dataset):
-    def __init__(self, paths: list[str], transform: torchvision.transforms =None, labels: torch.Tensor =None, rgb: bool =True):
+    def __init__(self,
+                 paths: list[str],
+                 transform: torchvision.transforms =None,
+                 labels: torch.Tensor =None,
+                 rgb: bool =True):
+        
         self.paths = paths
         self.transform = transform
         self.labels = labels
