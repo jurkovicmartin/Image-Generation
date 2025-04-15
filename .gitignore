@@ -174,4 +174,7 @@ cython_debug/
 .pypirc
 
 # Dataset
-dataset
+dataset/
+# dataset/profiles_full/
+# dataset/profiles_short/
+# dataset/numbers/
